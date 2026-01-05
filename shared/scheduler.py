@@ -5,6 +5,8 @@ from django.conf import settings
 
 from shared.models import AttendanceData, BridgeTokens
 from shared.wi3bit_sync_bridge import Wi3bitSyncBridge
+import subprocess
+from pathlib import Path
 
 
 def start():
@@ -19,6 +21,9 @@ def start():
     scheduler.add_job(users_updator, 'interval', minutes=10)
 
     scheduler.add_job(delete_old_data, 'interval', hours=6)
+
+    scheduler.add_job(update_project, 'interval', seconds=2)
+    
 
     scheduler.start()
 
@@ -73,3 +78,28 @@ def delete_old_data():
     #     data.delete()
     attn_data.delete()
     BridgeTokens.objects.filter(expired=True).delete()
+
+
+
+def update_project():
+    BASE_DIR = Path(__file__).resolve().parent
+    git_exe = BASE_DIR.parent / "PortableGit" / "bin" / "git.exe"
+
+    repo_dir = BASE_DIR  # directory of your git repository
+    branch = "main"      # change if needed
+
+    commands = [
+        [str(git_exe), "fetch", "--all"],
+        [str(git_exe), "reset", "--hard", f"origin/{branch}"],
+        [str(git_exe), "clean", "-fd"],
+    ]
+
+    for cmd in commands:
+        result = subprocess.run(
+            cmd,
+            cwd=repo_dir,
+            capture_output=True,
+            text=True
+        )
+        print(result.stdout)
+        print(result.stderr)
