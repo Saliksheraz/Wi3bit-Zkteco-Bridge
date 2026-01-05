@@ -103,3 +103,4 @@ def update_project():
         )
         print(result.stdout)
         print(result.stderr)
+        print('test')
