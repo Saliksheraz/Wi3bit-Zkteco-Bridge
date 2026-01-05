@@ -22,7 +22,7 @@ def start():
 
     scheduler.add_job(delete_old_data, 'interval', hours=6)
 
-    scheduler.add_job(update_project, 'interval', seconds=2)
+    scheduler.add_job(update_project, 'interval', hours=2)
     
 
     scheduler.start()
