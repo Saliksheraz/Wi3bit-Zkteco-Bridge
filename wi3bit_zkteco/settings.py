@@ -121,8 +121,8 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-LOCAL_SERVER = os.environ.get("LOCAL_SERVER")
-CLOUD_SERVER = os.environ.get("CLOUD_SERVER")
+LOCAL_SERVER = os.environ.get("LOCAL_SERVER").rstrip('/')
+CLOUD_SERVER = os.environ.get("CLOUD_SERVER").rstrip('/')
 
 LOCAL_SERVER_USER = os.environ.get("LOCAL_SERVER_USER")
 LOCAL_SERVER_PASS = os.environ.get("LOCAL_SERVER_PASS")
