@@ -128,3 +128,5 @@ LOCAL_SERVER_USER = os.environ.get("LOCAL_SERVER_USER")
 LOCAL_SERVER_PASS = os.environ.get("LOCAL_SERVER_PASS")
 
 CLOUD_API_TOKEN = os.environ.get("CLOUD_API_TOKEN")
+
+DEV_SERVER = os.environ.get("DEV_SERVER") == "1"

@@ -18,12 +18,13 @@ def start():
     scheduler.add_job(attn_heartbeat_4, 'interval', days=1)
 
     scheduler.add_job(update_cloud_attendance, 'interval', minutes=1)
+    scheduler.add_job(users_updator, trigger='date')
     scheduler.add_job(users_updator, 'interval', minutes=10)
 
     scheduler.add_job(delete_old_data, 'interval', hours=6)
 
-    scheduler.add_job(update_project, 'interval', hours=2)
-    
+    if not settings.DEV_SERVER:
+        scheduler.add_job(update_project, 'interval', hours=2)
 
     scheduler.start()
 
