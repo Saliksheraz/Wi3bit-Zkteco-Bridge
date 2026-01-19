@@ -3,6 +3,8 @@ import json
 import time
 import requests
 from django.conf import settings
+from django.db.models.signals import post_save
+
 from shared.models import AttendanceData, BridgeTokens
 
 
@@ -10,26 +12,28 @@ class Wi3bitSyncBridge:
     def __init__(self):
         self.username = settings.LOCAL_SERVER_USER
         self.password = settings.LOCAL_SERVER_PASS
-        self.area_id = 1
-        self.dept_id = 1
+        self.area_id = None
+        self.dept_id = None
         self.local_users = None
         self.cloud_users = None
 
         self.token = self.get_token()
-        # self.area_dept_verification()
+        self.area_dept_verification()
 
     def get_token(self, renew=False):
         if renew:
             BridgeTokens.objects.all().delete()
         token_inst = BridgeTokens.objects.filter(expired=False).last()
         if token_inst:
+            print("Using token from DB:")
             return token_inst.token
-
+        print("Getting new token from Local Server:")
         url = f"{settings.LOCAL_SERVER}/jwt-api-token-auth/"
         headers = {"Content-Type": "application/json"}
         data = {"username": self.username, "password": self.password}
         response = requests.post(url, data=json.dumps(data), headers=headers, timeout=5)
         if response.status_code == 400:
+            print(f"Token api failed, Status: {response.status_code}, Response: {response.text}")
             raise Exception('Invalid credentials or Local server not running')
 
         token = response.json()['token']
@@ -37,7 +41,9 @@ class Wi3bitSyncBridge:
         return token
 
     def get_local_users(self):
+        print("Getting local users")
         if self.local_users:
+            print("Returned users from cache:")
             return self.local_users
         page_number = 1
         local_users = []
@@ -55,14 +61,18 @@ class Wi3bitSyncBridge:
         return local_users
 
     def get_cloud_users(self):
+        print("Getting cloud users")
         if self.cloud_users:
+            print("Returned users from cache:")
             return self.cloud_users
         headers = {"Content-Type": "application/json"}
         page_number = 1
         cloud_users = []
         while page_number:
             url = f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/users/?token={settings.CLOUD_API_TOKEN}&per_page=100&page={page_number}"
+            print("Cloud users url", url)
             response = requests.get(url, headers=headers, timeout=20)
+            print(f"Got response from cloud API, Status: {response.status_code}, Response: {response.text}")
             if not response.status_code == 200:
                 raise Exception(f"Invalid response from cloud API:\n {response.text}")
             response_json = response.json()
@@ -74,26 +84,8 @@ class Wi3bitSyncBridge:
         self.cloud_users = cloud_users
         return cloud_users
 
-    def get_cloud_user_by_local(self, local_user):
-        for cloud_user in self.get_cloud_users():
-            if int(cloud_user['id']) == int(local_user['emp_code']):
-                return cloud_user
-
-    def get_local_user_by_cloud(self):
-        return
-
-    def update_rfid_number_on_cloud(self):
-        local_users = self.get_local_users()
-        cloud_users = self.get_cloud_users()
-        for local_user in local_users:
-            cloud_user = self.get_cloud_user_by_local(local_user)
-            card_no = local_user["card_no"]
-            card_no = int(card_no) if card_no and card_no.isdigit() else 0
-            # if card_no > 1 and card_no != cloud_user['rfid_number']:
-            #     print("Updated", card_no, cloud_user['rfid_number'])
-            print(local_user['first_name'], local_user['update_time'])
-
     def update_local_attendance(self, start_time=None):
+        print(f"Updating local attendance, {start_time}")
         if start_time and isinstance(start_time, str):
             start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
         url = f"{settings.LOCAL_SERVER}/iclock/api/transactions/?start_time={start_time or ''}"
@@ -114,12 +106,15 @@ class Wi3bitSyncBridge:
                 new_attn = True
                 timestamp = datetime.datetime.strptime(data['punch_time'], "%Y-%m-%d %H:%M:%S")
                 AttendanceData.objects.create(user_id=data['emp_code'], timestamp=timestamp, attn_id=data['id'])
+                print(f"Attendance data created: user: {data['emp_code']}, timestamp: {timestamp}")
         if new_attn:
             self.update_cloud_attendance()
 
     def update_cloud_attendance(self):
+        print("Uploading attendance data to cloud:")
         pending_attn_data = AttendanceData.objects.filter(synced=False)
         if not pending_attn_data.exists():
+            print("No pending attendance data to sync, exiting")
             return
         pay_load = [{
             "user_id": data.user_id,
@@ -130,6 +125,7 @@ class Wi3bitSyncBridge:
             json=pay_load,
             timeout=10,
         )
+        print(f"Got resposne from cloud attn update api, status: {response.status_code}, response: {response.text}")
         if response.status_code == 201:
             pending_attn_data.update(synced=True)
         print("Attendance Synced Successfully!")
@@ -154,6 +150,7 @@ class Wi3bitSyncBridge:
         print("Users Synced Successfully!")
 
     def create_user(self, cloud_user):
+        print("Creating new user", cloud_user)
         response = self.local_api_call(
             url= f"{settings.LOCAL_SERVER}/personnel/api/employees/",
             method="post",
@@ -166,11 +163,19 @@ class Wi3bitSyncBridge:
             },
         )
         if not (200 <= response.status_code <= 299):
+            print({
+                "emp_code": cloud_user["id"],
+                "department": self.dept_id,
+                "area": [self.area_id],
+                "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
+                # "card_no": cloud_user['rfid_number'],
+            })
             raise Exception(f"User Creation Failed \n {response.text}")
         # time.sleep(0.5)
         print("User Created:", cloud_user['name'])
 
     def update_user(self, local_user_id, cloud_user):
+        print(f"Updating user, local user id: {local_user_id}, cloud user: {cloud_user}")
         response = self.local_api_call(
             url=f"{settings.LOCAL_SERVER}/personnel/api/employees/{local_user_id}/",
             method="put",
@@ -187,6 +192,7 @@ class Wi3bitSyncBridge:
         print("User Updated:", cloud_user['name'])
 
     def delete_user(self, local_user_id):
+        print(f"Deleting user, local user id: {local_user_id}")
         response = self.local_api_call(
             url=f"{settings.LOCAL_SERVER}/personnel/api/employees/{local_user_id}/",
             method="delete"
@@ -197,6 +203,7 @@ class Wi3bitSyncBridge:
         print("User Deleted:", local_user_id)
 
     def delete_attn_data(self, attn_id):
+        print(f"Deleting attendance data, attn id: {attn_id}")
         response = self.local_api_call(
             url=f"{settings.LOCAL_SERVER}/iclock/api/transactions/{attn_id}/",
             method="delete"
@@ -204,46 +211,85 @@ class Wi3bitSyncBridge:
         # time.sleep(0.2)
 
     def area_dept_verification(self):
+        print("Verifying Area and Dept")
         # Area
-        response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/areas/{self.area_id}/")
-        if response.status_code == 404:
+        response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/areas/")
+        for area in response.json()['data']:
+            if area['area_code'] == "wi3bit":
+                self.area_id = area['id']
+                break
+
+        if not self.area_id:
+            print("Area not found, creating new area")
             post_res = self.local_api_call(
                 url=f"{settings.LOCAL_SERVER}/personnel/api/areas/",
                 method="post",
-                data={"area_code": self.area_id, "area_name": f"Auto Defined (Don't Delete)"}
+                data={"area_code": "wi3bit", "area_name": f"Wi3bit (Don't Delete)"}
             )
             if not(200 <= post_res.status_code <= 299):
                 raise Exception(f"Area validation failed \n {post_res.text}")
+            self.area_id = post_res.json()['id']
+            print("Area created successfully")
+
         # Dept
-        response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/departments/{self.dept_id}/")
-        if response.status_code == 404:
+        response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/departments/")
+        for dept in response.json()['data']:
+            if dept['dept_code'] == "wi3bit":
+                self.dept_id = dept['id']
+                break
+
+        if not self.dept_id:
+            print("Dept not found, creating new dept")
             post_res = self.local_api_call(
                 url=f"{settings.LOCAL_SERVER}/personnel/api/departments/",
                 method="post",
-                data={"dept_code": self.dept_id, "dept_name": "Auto Defined (Don't Delete)",}
+                data={"dept_code": "wi3bit", "dept_name": "Wi3bit (Don't Delete)",}
             )
             if not(200 <= post_res.status_code <= 299):
                 raise Exception(f"Dept validation failed \n {post_res.text}")
+            self.dept_id = post_res.json()['id']
+            print("Dept created successfully")
+        print("Area and Dept verified successfully")
+
+        print("Verifying devices")
+        response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/iclock/api/terminals/")
+        for device in response.json()['data']:
+            if device["area"] != "wi3bit":
+                print(f"Device: {device['sn']} is not in wi3bit area, updating it")
+                post_res = self.local_api_call(
+                    url=f"{settings.LOCAL_SERVER}/iclock/api/terminals/{device['id']}/",
+                    method="put",
+                    data={
+                        "sn": device['sn'],
+                        "alias": device['alias'],
+                        "ip_address": device['ip_address'],
+                        "area": self.area_id
+                    }
+                )
+                if 200 <= response.status_code <= 299:
+                    print(f"Device: {device['sn']} updated successfully")
 
     def local_api_call(self, url, method='get', data=None, timeout=5, retry=True):
+        print(f"Calling Local API: {url} with method: {method}, data: {data}, timeout: {timeout}, retry: {retry}")
         def get_response():
             headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
             if method.lower() == "get":
-                response = requests.get(url, headers=headers, timeout=timeout)
+                return requests.get(url, headers=headers, timeout=timeout)
             elif method.lower() == "post":
-                response = requests.post(url, data=json.dumps(data or {}), headers=headers, timeout=timeout)
+                return requests.post(url, data=json.dumps(data or {}), headers=headers, timeout=timeout)
             elif method.lower() == "put":
-                response = requests.put(url, data=json.dumps(data or {}), headers=headers, timeout=timeout)
+                return requests.put(url, data=json.dumps(data or {}), headers=headers, timeout=timeout)
             elif method.lower() == "delete":
-                response = requests.delete(url, headers=headers, timeout=timeout)
-            else:
-                raise Exception(f"Invalid method: {method}")
-            return response
+                return requests.delete(url, headers=headers, timeout=timeout)
+            print(f"Invalid method: {method}")
+            raise Exception(f"Invalid method: {method}")
 
         response = get_response()
         if retry and response.status_code == 400:
+            print("Got 400 status code, getting new token and retrying")
             self.token = self.get_token(renew=True)
             response = get_response()
             if not (200 <= response.status_code <= 299):
+                print(f"Got new token but failed again, exiting with error: {response.text}")
                 raise Exception(response.text)
         return response
