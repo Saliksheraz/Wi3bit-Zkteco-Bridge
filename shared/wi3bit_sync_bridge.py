@@ -1,28 +1,37 @@
 import datetime
 import json
 import time
-
 import requests
 from django.conf import settings
-
 from shared.models import AttendanceData, BridgeTokens
 
 
 class Wi3bitSyncBridge:
-    def __init__(self, username, password):
-        self.token = self.get_token(username, password)
+    def __init__(self):
+        self.username = settings.LOCAL_SERVER_USER
+        self.password = settings.LOCAL_SERVER_PASS
+        self.area_id = 1
+        self.dept_id = 1
         self.local_users = None
         self.cloud_users = None
 
-    def get_token(self, username, password):
-        token_inst = BridgeTokens.objects.filter(expired=False).order_by('-id').first()
+        self.token = self.get_token()
+        # self.area_dept_verification()
+
+    def get_token(self, renew=False):
+        if renew:
+            BridgeTokens.objects.all().delete()
+        token_inst = BridgeTokens.objects.filter(expired=False).last()
         if token_inst:
             return token_inst.token
 
         url = f"{settings.LOCAL_SERVER}/jwt-api-token-auth/"
         headers = {"Content-Type": "application/json"}
-        data = {"username": username, "password": password}
+        data = {"username": self.username, "password": self.password}
         response = requests.post(url, data=json.dumps(data), headers=headers, timeout=5)
+        if response.status_code == 400:
+            raise Exception('Invalid credentials or Local server not running')
+
         token = response.json()['token']
         BridgeTokens.objects.create(token=token)
         return token
@@ -30,21 +39,18 @@ class Wi3bitSyncBridge:
     def get_local_users(self):
         if self.local_users:
             return self.local_users
-        headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
         page_number = 1
         local_users = []
         while page_number:
-            url = f"{settings.LOCAL_SERVER}/personnel/api/employees/?page_size=500&page={page_number}"
-            response = requests.get(url, headers=headers, timeout=20)
-            if not (200 <= response.status_code <= 299):
-                BridgeTokens.objects.all().update(expired=True)
-                return self.get_local_users()
+            response = self.local_api_call(
+                url= f"{settings.LOCAL_SERVER}/personnel/api/employees/?page_size=500&page={page_number}"
+            )
             response_json = response.json()
             local_users.extend(response_json['data'])
             if not response_json['next']:
                 break
             page_number += 1
-            time.sleep(0.5)
+            # time.sleep(0.5)
         self.local_users = local_users
         return local_users
 
@@ -57,9 +63,8 @@ class Wi3bitSyncBridge:
         while page_number:
             url = f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/users/?token={settings.CLOUD_API_TOKEN}&per_page=100&page={page_number}"
             response = requests.get(url, headers=headers, timeout=20)
-            if not (200 <= response.status_code <= 299):
-                BridgeTokens.objects.all().update(expired=True)
-                return self.get_cloud_users()
+            if not response.status_code == 200:
+                raise Exception(f"Invalid response from cloud API:\n {response.text}")
             response_json = response.json()
             cloud_users.extend(response_json['data'])
             if not response_json['has_more']:
@@ -92,20 +97,16 @@ class Wi3bitSyncBridge:
         if start_time and isinstance(start_time, str):
             start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
         url = f"{settings.LOCAL_SERVER}/iclock/api/transactions/?start_time={start_time or ''}"
-        headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
         attendance_data = []
         page_number = 1
         while page_number:
-            response = requests.get(f"{url}&page={page_number}", headers=headers, timeout=5)
-            if not (200 <= response.status_code <= 299):
-                BridgeTokens.objects.all().update(expired=True)
-                return self.update_local_attendance(start_time)
+            response = self.local_api_call(url=f"{url}&page={page_number}")
             response_json = response.json()
             attendance_data.extend(response_json['data'])
             if not response_json['next']:
                 break
             page_number += 1
-            time.sleep(0.5)
+            # time.sleep(0.5)
 
         new_attn = False
         for data in attendance_data:
@@ -127,7 +128,7 @@ class Wi3bitSyncBridge:
         response = requests.post(
             f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/attendance_data/?token={settings.CLOUD_API_TOKEN}",
             json=pay_load,
-            timeout=10
+            timeout=10,
         )
         if response.status_code == 201:
             pending_attn_data.update(synced=True)
@@ -153,48 +154,96 @@ class Wi3bitSyncBridge:
         print("Users Synced Successfully!")
 
     def create_user(self, cloud_user):
-        url = f"{settings.LOCAL_SERVER}/personnel/api/employees/"
-        headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
-        data = {
-            "emp_code": cloud_user["id"],
-            "department": 2,
-            "area": [2],
-            "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
-            # "card_no": cloud_user['rfid_number'],
-        }
-        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=5)
+        response = self.local_api_call(
+            url= f"{settings.LOCAL_SERVER}/personnel/api/employees/",
+            method="post",
+            data={
+                "emp_code": cloud_user["id"],
+                "department": self.dept_id,
+                "area": [self.area_id],
+                "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
+                # "card_no": cloud_user['rfid_number'],
+            },
+        )
         if not (200 <= response.status_code <= 299):
-            BridgeTokens.objects.all().update(expired=True)
-            return self.create_user(cloud_user)
-
-        time.sleep(0.5)
+            raise Exception(f"User Creation Failed \n {response.text}")
+        # time.sleep(0.5)
         print("User Created:", cloud_user['name'])
 
     def update_user(self, local_user_id, cloud_user):
-        url = f"{settings.LOCAL_SERVER}/personnel/api/employees/{local_user_id}/"
-        headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
-        data = {
-            "emp_code": cloud_user["id"],
-            "department": 2,
-            "area": [2],
-            "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
-        }
-        response = requests.put(url, data=json.dumps(data), headers=headers, timeout=5)
+        response = self.local_api_call(
+            url=f"{settings.LOCAL_SERVER}/personnel/api/employees/{local_user_id}/",
+            method="put",
+            data={
+                "emp_code": cloud_user["id"],
+                "area": [self.area_id],
+                "department": self.dept_id,
+                "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
+            },
+        )
         if not (200 <= response.status_code <= 299):
-            BridgeTokens.objects.all().update(expired=True)
-            return self.update_user(local_user_id, cloud_user)
-        time.sleep(0.5)
+            raise Exception(f"User Update Failed \n {response.text}")
+        # time.sleep(0.5)
         print("User Updated:", cloud_user['name'])
 
     def delete_user(self, local_user_id):
-        url = f"{settings.LOCAL_SERVER}/personnel/api/employees/{local_user_id}/"
-        headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
-        response = requests.delete(url, headers=headers, timeout=5)
-        time.sleep(0.5)
+        response = self.local_api_call(
+            url=f"{settings.LOCAL_SERVER}/personnel/api/employees/{local_user_id}/",
+            method="delete"
+        )
+        if not (200 <= response.status_code <= 299):
+            raise Exception(f"User Deletion Failed \n {response.text}")
+        # time.sleep(0.5)
         print("User Deleted:", local_user_id)
 
     def delete_attn_data(self, attn_id):
-        url = f"{settings.LOCAL_SERVER}/iclock/api/transactions/{attn_id}/"
-        headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
-        response = requests.delete(url, headers=headers, timeout=5)
-        time.sleep(0.2)
+        response = self.local_api_call(
+            url=f"{settings.LOCAL_SERVER}/iclock/api/transactions/{attn_id}/",
+            method="delete"
+        )
+        # time.sleep(0.2)
+
+    def area_dept_verification(self):
+        # Area
+        response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/areas/{self.area_id}/")
+        if response.status_code == 404:
+            post_res = self.local_api_call(
+                url=f"{settings.LOCAL_SERVER}/personnel/api/areas/",
+                method="post",
+                data={"area_code": self.area_id, "area_name": f"Auto Defined (Don't Delete)"}
+            )
+            if not(200 <= post_res.status_code <= 299):
+                raise Exception(f"Area validation failed \n {post_res.text}")
+        # Dept
+        response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/departments/{self.dept_id}/")
+        if response.status_code == 404:
+            post_res = self.local_api_call(
+                url=f"{settings.LOCAL_SERVER}/personnel/api/departments/",
+                method="post",
+                data={"dept_code": self.dept_id, "dept_name": "Auto Defined (Don't Delete)",}
+            )
+            if not(200 <= post_res.status_code <= 299):
+                raise Exception(f"Dept validation failed \n {post_res.text}")
+
+    def local_api_call(self, url, method='get', data=None, timeout=5, retry=True):
+        def get_response():
+            headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
+            if method.lower() == "get":
+                response = requests.get(url, headers=headers, timeout=timeout)
+            elif method.lower() == "post":
+                response = requests.post(url, data=json.dumps(data or {}), headers=headers, timeout=timeout)
+            elif method.lower() == "put":
+                response = requests.put(url, data=json.dumps(data or {}), headers=headers, timeout=timeout)
+            elif method.lower() == "delete":
+                response = requests.delete(url, headers=headers, timeout=timeout)
+            else:
+                raise Exception(f"Invalid method: {method}")
+            return response
+
+        response = get_response()
+        if retry and response.status_code == 400:
+            self.token = self.get_token(renew=True)
+            response = get_response()
+            if not (200 <= response.status_code <= 299):
+                raise Exception(response.text)
+        return response

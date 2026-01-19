@@ -1,27 +1,32 @@
 import datetime
+import subprocess
 from datetime import timedelta
+from pathlib import Path
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from django.conf import settings
 
-from shared.models import AttendanceData, BridgeTokens
+from shared.models import AttendanceData
 from shared.wi3bit_sync_bridge import Wi3bitSyncBridge
-import subprocess
-from pathlib import Path
 
 
 def start():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(attn_heartbeat, 'interval', seconds=8)
-    scheduler.add_job(attn_heartbeat_1, 'interval', minutes=30)
-    scheduler.add_job(attn_heartbeat_2, 'interval', hours=6)
-    scheduler.add_job(attn_heartbeat_3, 'interval', hours=12)
-    scheduler.add_job(attn_heartbeat_4, 'interval', days=1)
+    bridge_inst = Wi3bitSyncBridge()
 
-    scheduler.add_job(update_cloud_attendance, 'interval', minutes=1)
-    scheduler.add_job(users_updator, trigger='date')
-    scheduler.add_job(users_updator, 'interval', minutes=10)
+    scheduler.add_job(users_updator, trigger='date', args=[bridge_inst])
 
-    scheduler.add_job(delete_old_data, 'interval', hours=6)
+    scheduler.add_job(attn_heartbeat, 'interval', seconds=8, args=[bridge_inst])
+    scheduler.add_job(attn_heartbeat_1, 'interval', minutes=30, args=[bridge_inst])
+    scheduler.add_job(attn_heartbeat_2, 'interval', hours=6, args=[bridge_inst])
+    scheduler.add_job(attn_heartbeat_3, 'interval', hours=12, args=[bridge_inst])
+    scheduler.add_job(attn_heartbeat_4, 'interval', days=1, args=[bridge_inst])
+
+    scheduler.add_job(update_cloud_attendance, 'interval', minutes=1, args=[bridge_inst])
+
+    scheduler.add_job(users_updator, 'interval', minutes=10, args=[bridge_inst])
+
+    scheduler.add_job(delete_old_data, 'interval', hours=6, args=[bridge_inst])
 
     if not settings.DEV_SERVER:
         scheduler.add_job(update_project, 'interval', hours=2)
@@ -29,56 +34,47 @@ def start():
     scheduler.start()
 
 
-def attn_heartbeat():
+def attn_heartbeat(bridge_inst):
     latest_log = AttendanceData.objects.order_by('-timestamp').first()
     start_time = latest_log.timestamp if latest_log else datetime.datetime.now() - timedelta(hours=6)
-    inst = Wi3bitSyncBridge(settings.LOCAL_SERVER_USER, settings.LOCAL_SERVER_PASS)
-    inst.update_local_attendance(start_time)
+    bridge_inst.update_local_attendance(start_time)
 
 
-def attn_heartbeat_1():
+def attn_heartbeat_1(bridge_inst):
     start_time = datetime.datetime.now() - timedelta(minutes=35)
-    inst = Wi3bitSyncBridge(settings.LOCAL_SERVER_USER, settings.LOCAL_SERVER_PASS)
-    inst.update_local_attendance(start_time)
+    bridge_inst.update_local_attendance(start_time)
 
 
-def attn_heartbeat_2():
+def attn_heartbeat_2(bridge_inst):
     start_time = datetime.datetime.now() - timedelta(hours=7)
-    inst = Wi3bitSyncBridge(settings.LOCAL_SERVER_USER, settings.LOCAL_SERVER_PASS)
-    inst.update_local_attendance(start_time)
+    bridge_inst.update_local_attendance(start_time)
 
 
-def attn_heartbeat_3():
+def attn_heartbeat_3(bridge_inst):
     start_time = datetime.datetime.now() - timedelta(hours=13)
-    inst = Wi3bitSyncBridge(settings.LOCAL_SERVER_USER, settings.LOCAL_SERVER_PASS)
-    inst.update_local_attendance(start_time)
+    bridge_inst.update_local_attendance(start_time)
 
 
-def attn_heartbeat_4():
+def attn_heartbeat_4(bridge_inst):
     start_time = datetime.datetime.now() - timedelta(days=10)
-    inst = Wi3bitSyncBridge(settings.LOCAL_SERVER_USER, settings.LOCAL_SERVER_PASS)
-    inst.update_local_attendance(start_time)
+    bridge_inst.update_local_attendance(start_time)
 
 
-def users_updator():
-    inst = Wi3bitSyncBridge(settings.LOCAL_SERVER_USER, settings.LOCAL_SERVER_PASS)
-    inst.update_users()
+def users_updator(bridge_inst):
+    bridge_inst.update_users()
 
 
-def update_cloud_attendance():
-    inst = Wi3bitSyncBridge(settings.LOCAL_SERVER_USER, settings.LOCAL_SERVER_PASS)
-    inst.update_cloud_attendance()
+def update_cloud_attendance(bridge_inst):
+    bridge_inst.update_cloud_attendance()
 
 
-def delete_old_data():
-    # inst = Wi3bitSyncBridge(settings.LOCAL_SERVER_USER, settings.LOCAL_SERVER_PASS)
+def delete_old_data(bridge_inst):
     attn_data = AttendanceData.objects.filter(timestamp__lte=datetime.datetime.now() - timedelta(days=10),
                                               synced=True)
     # for data in attn_data:
-    #     inst.delete_attn_data(data.attn_id)
+    #     bridge_inst.delete_attn_data(data.attn_id)
     #     data.delete()
     attn_data.delete()
-    BridgeTokens.objects.filter(expired=True).delete()
 
 
 
@@ -102,5 +98,6 @@ def update_project():
             capture_output=True,
             text=True
         )
+        print("Project updated via git")
         # print(result.stdout)
         # print(result.stderr)
