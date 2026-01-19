@@ -10,14 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
-import environ
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-env = environ.Env()
-environ.Env.read_env()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -121,12 +118,13 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-LOCAL_SERVER = os.environ.get("LOCAL_SERVER").rstrip('/')
-CLOUD_SERVER = os.environ.get("CLOUD_SERVER").rstrip('/')
 
-LOCAL_SERVER_USER = os.environ.get("LOCAL_SERVER_USER")
-LOCAL_SERVER_PASS = os.environ.get("LOCAL_SERVER_PASS")
+LOCAL_SERVER = config('LOCAL_SERVER', default="", cast=str).rstrip('/')
+CLOUD_SERVER = config('CLOUD_SERVER', default="", cast=str).rstrip('/')
 
-CLOUD_API_TOKEN = os.environ.get("CLOUD_API_TOKEN")
+LOCAL_SERVER_USER = config('LOCAL_SERVER_USER', default="", cast=str)
+LOCAL_SERVER_PASS = config('LOCAL_SERVER_PASS', default="", cast=str)
 
-DEV_SERVER = os.environ.get("DEV_SERVER") == "1"
+
+CLOUD_API_TOKEN = config('CLOUD_API_TOKEN', default="", cast=str)
+DEV_SERVER = config('DEV_SERVER', default=False, cast=bool)

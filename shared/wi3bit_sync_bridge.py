@@ -22,7 +22,7 @@ class Wi3bitSyncBridge:
         url = f"{settings.LOCAL_SERVER}/jwt-api-token-auth/"
         headers = {"Content-Type": "application/json"}
         data = {"username": username, "password": password}
-        response = requests.post(url, data=json.dumps(data), headers=headers)
+        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=5)
         token = response.json()['token']
         BridgeTokens.objects.create(token=token)
         return token
@@ -35,7 +35,7 @@ class Wi3bitSyncBridge:
         local_users = []
         while page_number:
             url = f"{settings.LOCAL_SERVER}/personnel/api/employees/?page_size=500&page={page_number}"
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=20)
             if not (200 <= response.status_code <= 299):
                 BridgeTokens.objects.all().update(expired=True)
                 return self.get_local_users()
@@ -56,7 +56,7 @@ class Wi3bitSyncBridge:
         cloud_users = []
         while page_number:
             url = f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/users/?token={settings.CLOUD_API_TOKEN}&per_page=100&page={page_number}"
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=20)
             if not (200 <= response.status_code <= 299):
                 BridgeTokens.objects.all().update(expired=True)
                 return self.get_cloud_users()
@@ -96,7 +96,7 @@ class Wi3bitSyncBridge:
         attendance_data = []
         page_number = 1
         while page_number:
-            response = requests.get(f"{url}&page={page_number}", headers=headers, timeout=10)
+            response = requests.get(f"{url}&page={page_number}", headers=headers, timeout=5)
             if not (200 <= response.status_code <= 299):
                 BridgeTokens.objects.all().update(expired=True)
                 return self.update_local_attendance(start_time)
@@ -126,7 +126,9 @@ class Wi3bitSyncBridge:
         } for data in pending_attn_data]
         response = requests.post(
             f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/attendance_data/?token={settings.CLOUD_API_TOKEN}",
-            json=pay_load)
+            json=pay_load,
+            timeout=10
+        )
         if response.status_code == 201:
             pending_attn_data.update(synced=True)
         print("Attendance Synced Successfully!")
@@ -160,7 +162,7 @@ class Wi3bitSyncBridge:
             "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
             # "card_no": cloud_user['rfid_number'],
         }
-        response = requests.post(url, data=json.dumps(data), headers=headers)
+        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=5)
         if not (200 <= response.status_code <= 299):
             BridgeTokens.objects.all().update(expired=True)
             return self.create_user(cloud_user)
@@ -177,7 +179,7 @@ class Wi3bitSyncBridge:
             "area": [2],
             "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
         }
-        response = requests.put(url, data=json.dumps(data), headers=headers)
+        response = requests.put(url, data=json.dumps(data), headers=headers, timeout=5)
         if not (200 <= response.status_code <= 299):
             BridgeTokens.objects.all().update(expired=True)
             return self.update_user(local_user_id, cloud_user)
@@ -187,12 +189,12 @@ class Wi3bitSyncBridge:
     def delete_user(self, local_user_id):
         url = f"{settings.LOCAL_SERVER}/personnel/api/employees/{local_user_id}/"
         headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
-        response = requests.delete(url, headers=headers)
+        response = requests.delete(url, headers=headers, timeout=5)
         time.sleep(0.5)
         print("User Deleted:", local_user_id)
 
     def delete_attn_data(self, attn_id):
         url = f"{settings.LOCAL_SERVER}/iclock/api/transactions/{attn_id}/"
         headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
-        response = requests.delete(url, headers=headers)
+        response = requests.delete(url, headers=headers, timeout=5)
         time.sleep(0.2)

@@ -11,7 +11,7 @@ from pathlib import Path
 
 def start():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(attn_heartbeat, 'interval', seconds=3)
+    scheduler.add_job(attn_heartbeat, 'interval', seconds=8)
     scheduler.add_job(attn_heartbeat_1, 'interval', minutes=30)
     scheduler.add_job(attn_heartbeat_2, 'interval', hours=6)
     scheduler.add_job(attn_heartbeat_3, 'interval', hours=12)
