@@ -125,7 +125,7 @@ class Wi3bitSyncBridge:
             json=pay_load,
             timeout=10,
         )
-        print(f"Got resposne from cloud attn update api, status: {response.status_code}, response: {response.text}")
+        print(f"Got response from cloud attn update api, status: {response.status_code}, response: {response.text}")
         if response.status_code == 201:
             pending_attn_data.update(synced=True)
         print("Attendance Synced Successfully!")
@@ -163,13 +163,6 @@ class Wi3bitSyncBridge:
             },
         )
         if not (200 <= response.status_code <= 299):
-            print({
-                "emp_code": cloud_user["id"],
-                "department": self.dept_id,
-                "area": [self.area_id],
-                "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
-                # "card_no": cloud_user['rfid_number'],
-            })
             raise Exception(f"User Creation Failed \n {response.text}")
         # time.sleep(0.5)
         print("User Created:", cloud_user['name'])
@@ -254,7 +247,7 @@ class Wi3bitSyncBridge:
         print("Verifying devices")
         response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/iclock/api/terminals/")
         for device in response.json()['data']:
-            if device["area"] != "wi3bit":
+            if device["area"] != self.area_id:
                 print(f"Device: {device['sn']} is not in wi3bit area, updating it")
                 post_res = self.local_api_call(
                     url=f"{settings.LOCAL_SERVER}/iclock/api/terminals/{device['id']}/",
@@ -270,7 +263,7 @@ class Wi3bitSyncBridge:
                     print(f"Device: {device['sn']} updated successfully")
 
     def local_api_call(self, url, method='get', data=None, timeout=5, retry=True):
-        print(f"Calling Local API: {url} with method: {method}, data: {data}, timeout: {timeout}, retry: {retry}")
+        print(f"Calling Local API: {url} with method: {method}, data: {data}, timeout: {timeout}")
         def get_response():
             headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
             if method.lower() == "get":
