@@ -128,3 +128,35 @@ LOCAL_SERVER_PASS = config('LOCAL_SERVER_PASS', default="", cast=str)
 
 CLOUD_API_TOKEN = config('CLOUD_API_TOKEN', default="", cast=str)
 DEV_SERVER = config('DEV_SERVER', default=False, cast=bool)
+
+
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+
+    "handlers": {
+        "file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": BASE_DIR / "django.log",
+            "formatter": "verbose",
+        },
+    },
+
+    "root": {
+        "handlers": ["file"],
+        "level": "DEBUG",
+    },
+}
