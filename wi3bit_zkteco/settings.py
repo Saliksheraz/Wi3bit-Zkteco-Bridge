@@ -138,25 +138,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-
     "formatters": {
         "verbose": {
             "format": "[{asctime}] {levelname} {name}: {message}",
             "style": "{",
         },
     },
-
     "handlers": {
-        "file": {
+        "console": {
             "level": "DEBUG",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "django.log",
+            "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
+        "file": {
+            "level": "DEBUG",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": BASE_DIR / "django.log",
+            "formatter": "verbose",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 3,
+            "encoding": "utf-8",
+        },
     },
-
     "root": {
-        "handlers": ["file"],
+        "handlers": ["console", "file"],
         "level": "DEBUG",
     },
 }

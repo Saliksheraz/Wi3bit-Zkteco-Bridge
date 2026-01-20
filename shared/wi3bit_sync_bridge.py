@@ -70,9 +70,11 @@ class Wi3bitSyncBridge:
         headers = {"Content-Type": "application/json"}
         page_number = 1
         cloud_users = []
-        while page_number:
+
+        current_loop, max_loops = 1, 15
+        while current_loop <= max_loops:
             url = f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/users/?token={settings.CLOUD_API_TOKEN}&per_page=100&page={page_number}"
-            logger.info("Cloud users url", url)
+            logger.info(f"Cloud users url: {url}")
             response = requests.get(url, headers=headers, timeout=20)
             logger.info(f"Got response from cloud API, Status: {response.status_code}, Response: {response.text}")
             if not response.status_code == 200:
@@ -152,7 +154,7 @@ class Wi3bitSyncBridge:
         logger.info("Users Synced Successfully!")
 
     def create_user(self, cloud_user):
-        logger.info("Creating new user", cloud_user)
+        logger.info(f"Creating new user: {cloud_user}")
         response = self.local_api_call(
             url= f"{settings.LOCAL_SERVER}/personnel/api/employees/",
             method="post",
@@ -167,7 +169,7 @@ class Wi3bitSyncBridge:
         if not (200 <= response.status_code <= 299):
             raise Exception(f"User Creation Failed \n {response.text}")
         # time.sleep(0.5)
-        logger.info("User Created:", cloud_user['name'])
+        logger.info(f"User Created: {cloud_user['name']}")
 
     def update_user(self, local_user_id, cloud_user):
         logger.info(f"Updating user, local user id: {local_user_id}, cloud user: {cloud_user}")
@@ -184,7 +186,7 @@ class Wi3bitSyncBridge:
         if not (200 <= response.status_code <= 299):
             raise Exception(f"User Update Failed \n {response.text}")
         # time.sleep(0.5)
-        logger.info("User Updated:", cloud_user['name'])
+        logger.info(f"User Updated: {cloud_user['name']}")
 
     def delete_user(self, local_user_id):
         logger.info(f"Deleting user, local user id: {local_user_id}")
@@ -195,7 +197,7 @@ class Wi3bitSyncBridge:
         if not (200 <= response.status_code <= 299):
             raise Exception(f"User Deletion Failed \n {response.text}")
         # time.sleep(0.5)
-        logger.info("User Deleted:", local_user_id)
+        logger.info(f"User Deleted: {local_user_id}")
 
     def delete_attn_data(self, attn_id):
         logger.info(f"Deleting attendance data, attn id: {attn_id}")
