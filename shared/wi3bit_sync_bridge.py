@@ -246,23 +246,23 @@ class Wi3bitSyncBridge:
             logger.info("Dept created successfully")
         logger.info("Area and Dept verified successfully")
 
-        logger.info("Verifying devices")
-        response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/iclock/api/terminals/")
-        for device in response.json()['data']:
-            if device["area"] != self.area_id:
-                logger.info(f"Device: {device['sn']} is not in wi3bit area, updating it")
-                post_res = self.local_api_call(
-                    url=f"{settings.LOCAL_SERVER}/iclock/api/terminals/{device['id']}/",
-                    method="put",
-                    data={
-                        "sn": device['sn'],
-                        "alias": device['alias'],
-                        "ip_address": device['ip_address'],
-                        "area": self.area_id
-                    }
-                )
-                if 200 <= response.status_code <= 299:
-                    logger.info(f"Device: {device['sn']} updated successfully")
+        # logger.info("Verifying devices")
+        # response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/iclock/api/terminals/")
+        # for device in response.json()['data']:
+        #     if device["area"] != self.area_id:
+        #         logger.info(f"Device: {device['sn']} is not in wi3bit area, updating it")
+        #         post_res = self.local_api_call(
+        #             url=f"{settings.LOCAL_SERVER}/iclock/api/terminals/{device['id']}/",
+        #             method="put",
+        #             data={
+        #                 "sn": device['sn'],
+        #                 "alias": device['alias'],
+        #                 "ip_address": device['ip_address'],
+        #                 "area": self.area_id
+        #             }
+        #         )
+        #         if 200 <= response.status_code <= 299:
+        #             logger.info(f"Device: {device['sn']} updated successfully")
 
     def local_api_call(self, url, method='get', data=None, timeout=5, retry=True):
         logger.info(f"Calling Local API: {url} with method: {method}, data: {data}, timeout: {timeout}")
