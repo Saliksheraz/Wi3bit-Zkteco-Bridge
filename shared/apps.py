@@ -7,4 +7,8 @@ class SharedConfig(AppConfig):
 
     def ready(self):
         from .scheduler import start
+        import os
+
+        if os.getenv('DISABLE_SCHEDULER') == '1':
+            return
         start()

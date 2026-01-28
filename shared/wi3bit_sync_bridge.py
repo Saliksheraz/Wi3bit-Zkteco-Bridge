@@ -3,7 +3,6 @@ import json
 import time
 import requests
 from django.conf import settings
-from django.db.models.signals import post_save
 
 from shared.models import AttendanceData, BridgeTokens
 import logging
