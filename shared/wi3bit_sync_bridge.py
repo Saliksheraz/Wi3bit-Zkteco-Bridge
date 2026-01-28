@@ -272,7 +272,7 @@ class Wi3bitSyncBridge:
         #             logger.info(f"Device: {device['sn']} updated successfully")
 
     def local_api_call(self, url, method='get', data=None, timeout=5, retry=True):
-        logger.info(f"Local API Calling: {url} with method: {method}, data: {data}, timeout: {timeout}")
+        logger.info(f"Local API Calling: {url} with method: {method}, data: {data}, timeout: {timeout}, token: {self.token}")
         def get_response():
             headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
             if method.lower() == "get":
