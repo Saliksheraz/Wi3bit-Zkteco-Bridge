@@ -288,7 +288,7 @@ class Wi3bitSyncBridge:
 
         response = get_response()
         logger.info(f"Local API Responded: {response.status_code}, Response: {response.text[:100]}... {len(response.text) > 100 and '...' or ''}")
-        if retry and response.status_code == 400:
+        if retry and (400 <= response.status_code <= 499):
             logger.info("Got 400 status code, getting new token and retrying")
             self.token = self.get_token(renew=True)
             response = get_response()
