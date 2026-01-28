@@ -272,7 +272,7 @@ class Wi3bitSyncBridge:
         #             logger.info(f"Device: {device['sn']} updated successfully")
 
     def local_api_call(self, url, method='get', data=None, timeout=5, retry=True):
-        logger.info(f"Calling Local API: {url} with method: {method}, data: {data}, timeout: {timeout}")
+        logger.info(f"Local API Calling: {url} with method: {method}, data: {data}, timeout: {timeout}")
         def get_response():
             headers = {"Content-Type": "application/json", "Authorization": f"JWT {self.token}"}
             if method.lower() == "get":
@@ -287,6 +287,7 @@ class Wi3bitSyncBridge:
             raise Exception(f"Invalid method: {method}")
 
         response = get_response()
+        logger.info(f"Local API Responded: {response.status_code}, Response: {response.text[:100]}... {len(response.text) > 100 and '...' or ''}")
         if retry and response.status_code == 400:
             logger.info("Got 400 status code, getting new token and retrying")
             self.token = self.get_token(renew=True)
