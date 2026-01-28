@@ -210,7 +210,10 @@ class Wi3bitSyncBridge:
         logger.info("Verifying Area and Dept")
         # Area
         response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/areas/")
-        print(response.status_code)
+        if not response.status_code == 200:
+            logger.info(f"Area API Failed, Status: {response.status_code}, Response: {response.text}")
+            return
+
         for area in response.json()['data']:
             if area['area_code'] == "wi3bit":
                 self.area_id = area['id']
@@ -230,6 +233,10 @@ class Wi3bitSyncBridge:
 
         # Dept
         response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/departments/")
+        if not response.status_code == 200:
+            logger.info(f"Dept API Failed, Status: {response.status_code}, Response: {response.text}")
+            return
+
         for dept in response.json()['data']:
             if dept['dept_code'] == "wi3bit":
                 self.dept_id = dept['id']
