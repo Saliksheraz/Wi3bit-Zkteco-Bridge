@@ -210,6 +210,7 @@ class Wi3bitSyncBridge:
         logger.info("Verifying Area and Dept")
         # Area
         response = self.local_api_call(url=f"{settings.LOCAL_SERVER}/personnel/api/areas/")
+        print(response.status_code)
         for area in response.json()['data']:
             if area['area_code'] == "wi3bit":
                 self.area_id = area['id']
