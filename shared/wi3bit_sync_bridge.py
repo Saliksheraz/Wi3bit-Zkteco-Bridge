@@ -63,9 +63,6 @@ class Wi3bitSyncBridge:
 
     def get_cloud_users(self):
         logger.info("Getting cloud users")
-        if self.cloud_users:
-            logger.info("Returned users from cache:")
-            return self.cloud_users
         headers = {"Content-Type": "application/json"}
         page_number = 1
         cloud_users = []
