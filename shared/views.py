@@ -2,9 +2,16 @@ import os
 
 from django.conf import settings
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 
+from shared.wi3bit_sync_bridge import Wi3bitSyncBridge
+
+
+def updateUsers(request):
+    bridge_inst = Wi3bitSyncBridge()
+    bridge_inst.update_users()
+    return HttpResponse("Users Updated")
 
 
 def server_error_logs(request):
