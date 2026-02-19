@@ -156,11 +156,11 @@ class Wi3bitSyncBridge:
                 "department": self.dept_id,
                 "area": [self.area_id],
                 "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
-                # "card_no": cloud_user['rfid_number'],
+                "card_no": cloud_user['rfid_number'],
             },
         )
         if not (200 <= response.status_code <= 299):
-            raise Exception(f"User Creation Failed \n {response.text}")
+            raise Exception(f"User Creation Failed \n{response.status_code}\n{response.text}")
         # time.sleep(0.5)
         logger.info(f"User Created: {cloud_user['name']}")
 
