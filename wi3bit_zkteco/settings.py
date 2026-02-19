@@ -129,6 +129,7 @@ LOCAL_SERVER_PASS = config('LOCAL_SERVER_PASS', default="", cast=str)
 CLOUD_API_TOKEN = config('CLOUD_API_TOKEN', default="", cast=str)
 DEV_SERVER = config('DEV_SERVER', default=False, cast=bool)
 
+ERROR_LOG_FILE_PATH = BASE_DIR / "django.log"
 
 import os
 from pathlib import Path
