@@ -160,7 +160,7 @@ class Wi3bitSyncBridge:
             },
         )
         if not (200 <= response.status_code <= 299):
-            raise Exception(f"User Creation Failed \n{response.status_code}\n{response.text}")
+            logger.error(f"User Creation Failed \n{response.status_code}\n{response.text}")
         # time.sleep(0.5)
         logger.info(f"User Created: {cloud_user['name']}")
 
