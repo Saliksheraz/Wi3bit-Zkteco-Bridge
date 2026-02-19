@@ -43,14 +43,11 @@ class Wi3bitSyncBridge:
 
     def get_local_users(self):
         logger.info("Getting local users")
-        if self.local_users:
-            logger.info("Returned users from cache:")
-            return self.local_users
         page_number = 1
         local_users = []
         while page_number:
             response = self.local_api_call(
-                url= f"{settings.LOCAL_SERVER}/personnel/api/employees/?page_size=500&page={page_number}"
+                url= f"{settings.LOCAL_SERVER}/personnel/api/employees/?page_size=100&page={page_number}"
             )
             response_json = response.json()
             local_users.extend(response_json['data'])
