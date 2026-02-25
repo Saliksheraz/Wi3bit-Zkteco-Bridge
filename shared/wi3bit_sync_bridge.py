@@ -107,7 +107,7 @@ class Wi3bitSyncBridge:
         print("Uploading attendance data to cloud:")
         pending_attn_data = AttendanceData.objects.filter(synced=False)
         if not pending_attn_data.exists():
-            logger.info("No pending attendance data to sync, exiting")
+            print("No pending attendance data to sync, exiting")
             return
 
         pay_load = [{
@@ -117,7 +117,7 @@ class Wi3bitSyncBridge:
         response = requests.post(
             f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/attendance_data/?token={settings.CLOUD_API_TOKEN}",
             json=pay_load,
-            timeout=10,
+            timeout=7,
         )
         print(response.status_code, response.text)
         logger.info(f"Got response from cloud attn update api, status: {response.status_code}, response: {response.text}")
