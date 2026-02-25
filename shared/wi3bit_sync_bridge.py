@@ -104,11 +104,12 @@ class Wi3bitSyncBridge:
             self.update_cloud_attendance()
 
     def update_cloud_attendance(self):
-        logger.info("Uploading attendance data to cloud:")
+        print("Uploading attendance data to cloud:")
         pending_attn_data = AttendanceData.objects.filter(synced=False)
         if not pending_attn_data.exists():
             logger.info("No pending attendance data to sync, exiting")
             return
+
         pay_load = [{
             "user_id": data.user_id,
             "timestamp": data.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
@@ -118,6 +119,7 @@ class Wi3bitSyncBridge:
             json=pay_load,
             timeout=10,
         )
+        print(response.status_code, response.text)
         logger.info(f"Got response from cloud attn update api, status: {response.status_code}, response: {response.text}")
         if response.status_code == 201:
             pending_attn_data.update(synced=True)
