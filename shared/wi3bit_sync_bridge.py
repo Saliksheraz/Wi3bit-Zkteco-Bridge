@@ -78,7 +78,7 @@ class Wi3bitSyncBridge:
         return cloud_users
 
     def update_local_attendance(self, start_time=None):
-        logger.info(f"Updating local attendance, {start_time}")
+        print(f"Updating local attendance, {start_time}")
         if start_time and isinstance(start_time, str):
             start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
         url = f"{settings.LOCAL_SERVER}/iclock/api/transactions/?start_time={start_time or ''}"
@@ -99,7 +99,8 @@ class Wi3bitSyncBridge:
                 new_attn = True
                 timestamp = datetime.datetime.strptime(data['punch_time'], "%Y-%m-%d %H:%M:%S")
                 AttendanceData.objects.create(user_id=data['emp_code'], timestamp=timestamp, attn_id=data['id'])
-                logger.info(f"Attendance data created: user: {data['emp_code']}, timestamp: {timestamp}")
+                print(f"Attendance data created: user: {data['emp_code']}, timestamp: {timestamp}")
+        print("New attn", new_attn)
         if new_attn:
             self.update_cloud_attendance()
 
@@ -123,7 +124,7 @@ class Wi3bitSyncBridge:
         logger.info(f"Got response from cloud attn update api, status: {response.status_code}, response: {response.text}")
         if response.status_code == 201:
             pending_attn_data.update(synced=True)
-        logger.info("Attendance Synced Successfully!")
+        print("Attendance Synced Successfully!")
 
     def update_users(self):
         local_users = self.get_local_users()
