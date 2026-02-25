@@ -1,9 +1,4 @@
 ############ End Test Code ##################
-from shared.wi3bit_sync_bridge import Wi3bitSyncBridge
-
-bridge_inst = Wi3bitSyncBridge()
-bridge_inst.update_local_attendance()
-
 
 ############ Test Code Here ##################
 
