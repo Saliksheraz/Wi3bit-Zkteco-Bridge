@@ -15,8 +15,6 @@ class Wi3bitSyncBridge:
         self.password = settings.LOCAL_SERVER_PASS
         self.area_id = None
         self.dept_id = None
-        self.local_users = None
-        self.cloud_users = None
 
         self.token = self.get_token()
         self.area_dept_verification()
@@ -55,7 +53,6 @@ class Wi3bitSyncBridge:
                 break
             page_number += 1
             # time.sleep(0.5)
-        self.local_users = local_users
         return local_users
 
     def get_cloud_users(self):
@@ -78,7 +75,6 @@ class Wi3bitSyncBridge:
                 break
             page_number += 1
             time.sleep(1)
-        self.cloud_users = cloud_users
         return cloud_users
 
     def update_local_attendance(self, start_time=None):
@@ -149,18 +145,19 @@ class Wi3bitSyncBridge:
     def create_user(self, cloud_user):
         logger.info(f"Creating new user: {cloud_user}")
         response = self.local_api_call(
-            url= f"{settings.LOCAL_SERVER}/personnel/api/employees/",
+            url=f"{settings.LOCAL_SERVER}/personnel/api/employees/",
             method="post",
             data={
                 "emp_code": cloud_user["id"],
                 "department": self.dept_id,
                 "area": [self.area_id],
                 "first_name": f"{cloud_user['unique_id']} {cloud_user['name']}",
-                "card_no": cloud_user['rfid_number'],
+                # "card_no": cloud_user['rfid_number'],
             },
         )
         if not (200 <= response.status_code <= 299):
             logger.error(f"User Creation Failed \n{response.status_code}\n{response.text}")
+            return
         # time.sleep(0.5)
         logger.info(f"User Created: {cloud_user['name']}")
 
