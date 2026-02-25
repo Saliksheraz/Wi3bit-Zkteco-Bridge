@@ -82,8 +82,9 @@ class Wi3bitSyncBridge:
         if start_time and isinstance(start_time, str):
             start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
         url = f"{settings.LOCAL_SERVER}/iclock/api/transactions/?start_time={start_time or ''}"
-        attendance_data = []
+
         page_number = 1
+        attendance_data = []
         while page_number:
             response = self.local_api_call(url=f"{url}&page={page_number}")
             response_json = response.json()
@@ -94,12 +95,18 @@ class Wi3bitSyncBridge:
             # time.sleep(0.5)
 
         new_attn = False
+        attn_data_ids = [item['id'] for item in attendance_data]
+        existing_ids = set(
+            AttendanceData.objects.filter(attn_id__in=attn_data_ids).values_list('attn_id', flat=True)
+        )
         for data in attendance_data:
-            if not AttendanceData.objects.filter(attn_id=data['id']).exists():
-                new_attn = True
-                timestamp = datetime.datetime.strptime(data['punch_time'], "%Y-%m-%d %H:%M:%S")
-                AttendanceData.objects.create(user_id=data['emp_code'], timestamp=timestamp, attn_id=data['id'])
-                print(f"Attendance data created: user: {data['emp_code']}, timestamp: {timestamp}")
+            if data['id'] in existing_ids:
+                continue
+            new_attn = True
+            timestamp = datetime.datetime.strptime(data['punch_time'], "%Y-%m-%d %H:%M:%S")
+            AttendanceData.objects.create(user_id=data['emp_code'], timestamp=timestamp, attn_id=data['id'])
+            print(f"Attendance data created: user: {data['emp_code']}, timestamp: {timestamp}")
+
         print("New attn", new_attn)
         if new_attn:
             self.update_cloud_attendance()
