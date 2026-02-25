@@ -78,7 +78,7 @@ class Wi3bitSyncBridge:
         return cloud_users
 
     def update_local_attendance(self, start_time=None):
-        print(f"Updating local attendance, {start_time}")
+        logger.info(f"Updating local attendance, {start_time}")
         if start_time and isinstance(start_time, str):
             start_time = start_time.strftime('%Y-%m-%d %H:%M:%S')
         url = f"{settings.LOCAL_SERVER}/iclock/api/transactions/?start_time={start_time or ''}"
@@ -105,36 +105,32 @@ class Wi3bitSyncBridge:
             new_attn = True
             timestamp = datetime.datetime.strptime(data['punch_time'], "%Y-%m-%d %H:%M:%S")
             AttendanceData.objects.create(user_id=data['emp_code'], timestamp=timestamp, attn_id=data['id'])
-            print(f"Attendance data created: user: {data['emp_code']}, timestamp: {timestamp}")
+            logger.info(f"Attendance data created: user: {data['emp_code']}, timestamp: {timestamp}")
 
-        print("New attn", new_attn)
         if new_attn:
             self.update_cloud_attendance()
 
     def update_cloud_attendance(self):
-        print("Uploading attendance data to cloud:")
+        logger.info("Uploading attendance data to cloud:")
         pending_attn_data = AttendanceData.objects.filter(synced=False)
-        print(f"Pending attendance data: {pending_attn_data}")
         if not pending_attn_data.exists():
-            print("No pending attendance data to sync, exiting")
+            logger.error("No pending attendance data to sync, exiting")
             return
 
         pay_load = [{
             "user_id": data.user_id,
             "timestamp": data.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
         } for data in pending_attn_data]
-        print(f"Pay load: {pay_load}")
-        print(f"Url: {settings.CLOUD_SERVER}/zkteco/sync/bridge/attendance_data/?token={settings.CLOUD_API_TOKEN}")
         response = requests.post(
             f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/attendance_data/?token={settings.CLOUD_API_TOKEN}",
             json=pay_load,
             timeout=7,
         )
-        print(response.status_code, response.text)
         logger.info(f"Got response from cloud attn update api, status: {response.status_code}, response: {response.text}")
         if response.status_code == 201:
             pending_attn_data.update(synced=True)
-        print("Attendance Synced Successfully!")
+
+        logger.info("Attendance Synced Successfully!")
 
     def update_users(self):
         local_users = self.get_local_users()
@@ -153,6 +149,7 @@ class Wi3bitSyncBridge:
         for local_user in local_users:
             if int(local_user['emp_code']) not in cloud_ids:
                 self.delete_user(local_user['id'])
+
         logger.info("Users Synced Successfully!")
 
     def create_user(self, cloud_user):
