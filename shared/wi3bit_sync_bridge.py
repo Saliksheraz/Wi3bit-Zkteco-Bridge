@@ -124,6 +124,7 @@ class Wi3bitSyncBridge:
             "timestamp": data.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
         } for data in pending_attn_data]
         print(f"Pay load: {pay_load}")
+        print(f"Url: {settings.CLOUD_SERVER}/zkteco/sync/bridge/attendance_data/?token={settings.CLOUD_API_TOKEN}")
         response = requests.post(
             f"{settings.CLOUD_SERVER}/zkteco/sync/bridge/attendance_data/?token={settings.CLOUD_API_TOKEN}",
             json=pay_load,

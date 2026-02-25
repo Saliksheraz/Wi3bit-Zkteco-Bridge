@@ -14,6 +14,18 @@ def updateUsers(request):
     return HttpResponse("Users Updated")
 
 
+def updateLocalAttn(request):
+    bridge_inst = Wi3bitSyncBridge()
+    bridge_inst.update_local_attendance()
+    return HttpResponse("Local Attendance Updated")
+
+
+def updateCloudAttn(request):
+    bridge_inst = Wi3bitSyncBridge()
+    bridge_inst.update_cloud_attendance()
+    return HttpResponse("Cloud Attendance Updated")
+
+
 def server_error_logs(request):
     requestType = request.GET.get("requestType")
     if requestType == "get_logs_data":
