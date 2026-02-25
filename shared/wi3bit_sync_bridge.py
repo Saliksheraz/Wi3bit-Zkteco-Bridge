@@ -100,7 +100,6 @@ class Wi3bitSyncBridge:
             AttendanceData.objects.filter(attn_id__in=attn_data_ids).values_list('attn_id', flat=True)
         )
         for data in attendance_data:
-            print(data)
             if data['id'] in existing_ids:
                 continue
             new_attn = True
