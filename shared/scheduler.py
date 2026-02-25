@@ -14,8 +14,6 @@ def start():
     scheduler = BackgroundScheduler()
     bridge_inst = Wi3bitSyncBridge()
 
-    scheduler.add_job(users_updator, trigger='date', args=[bridge_inst])
-
     scheduler.add_job(attn_heartbeat, 'interval', seconds=15, args=[bridge_inst])
     scheduler.add_job(attn_heartbeat_1, 'interval', minutes=30, args=[bridge_inst])
     scheduler.add_job(attn_heartbeat_2, 'interval', hours=6, args=[bridge_inst])
